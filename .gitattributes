@@ -1,0 +1,2 @@
+# Forca fim de linha LF (padrao Linux/macOS) mesmo no Windows
+* text=auto eol=lf
