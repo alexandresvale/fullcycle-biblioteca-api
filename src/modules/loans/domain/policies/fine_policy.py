@@ -21,7 +21,7 @@ class StandardDailyFinePolicy:
 
 
 class AcademicGraceFinePolicy(FinePolicy):
-    """Política academica: concede dias de carência e tarifa reduzida."""
+    """Política acadêmica: concede dias de carência e tarifa reduzida."""
 
     def __init__(self, grace_days: int = 2, daily_rate: Decimal = Decimal("1.50")) -> None:
         self._grace_days = grace_days
