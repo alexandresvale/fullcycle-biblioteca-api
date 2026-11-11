@@ -4,8 +4,9 @@ from decimal import Decimal
 from enum import StrEnum
 from uuid import UUID, uuid4
 
-from src.domain.exceptions import DomainError, LoanAlreadyReturnedError
-from src.domain.policies.fine_policy import FinePolicy
+from src.core.exceptions import DomainError
+from src.modules.loans.domain.exceptions import LoanAlreadyReturnedError
+from src.modules.loans.domain.policies.fine_policy import FinePolicy
 
 
 class LoanStatus(StrEnum):
@@ -35,9 +36,9 @@ class Loan:
 
     def return_book(self, returned_at: date, fine_policy: FinePolicy) -> Decimal:
         if self.status == LoanStatus.RETURNED:
-            raise LoanAlreadyReturnedError("Este empréstimo ja foi finalizado.")
+            raise LoanAlreadyReturnedError("Este empréstimo já foi finalizado.")
         if returned_at < self.borrowed_at:
-            raise DomainError("Data de devolução nao pode ser anterior ao empréstimo.")
+            raise DomainError("Data de devolução não pode ser anterior ao empréstimo.")
         overdue_days = self.days_overdue(returned_at)
         self.fine_amount = fine_policy.calculate_fine(overdue_days)
         self.returned_at = returned_at

@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-from src.infra.http.main import app
+from src.main import app
 
 
 def test_health_check_returns_ok() -> None:

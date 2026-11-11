@@ -4,9 +4,10 @@ from uuid import uuid4
 
 import pytest
 
-from src.domain.entities.loan import Loan, LoanStatus
-from src.domain.exceptions import DomainError, LoanAlreadyReturnedError
-from src.domain.policies.fine_policy import (
+from src.core.exceptions import DomainError
+from src.modules.loans.domain.entities.loan import Loan, LoanStatus
+from src.modules.loans.domain.exceptions import LoanAlreadyReturnedError
+from src.modules.loans.domain.policies.fine_policy import (
     AcademicGraceFinePolicy,
     StandardDailyFinePolicy,
 )
@@ -38,7 +39,7 @@ def test_return_loan_overdue_with_standard_policy() -> None:
 
 
 def test_return_loan_overdue_with_academic_grace_policy() -> None:
-    policy = AcademicGraceFinePolicy(grace_days = 2, daily_rate = Decimal("1.50"))
+    policy = AcademicGraceFinePolicy(grace_days=2, daily_rate=Decimal("1.50"))
     loan_within_grace = Loan(
         book_id=uuid4(),
         reader_id=uuid4(),
@@ -75,3 +76,14 @@ def test_invalid_loan_dates_raise_domain_error() -> None:
             borrowed_at=date(2026, 11, 10),
             due_date=date(2026, 11, 5),
         )
+
+
+def test_return_date_before_borrow_date_raises_domain_error() -> None:
+    loan = Loan(
+        book_id=uuid4(),
+        reader_id=uuid4(),
+        borrowed_at=date(2026, 11, 5),
+        due_date=date(2026, 11, 10),
+    )
+    with pytest.raises(DomainError):
+        loan.return_book(date(2026, 11, 1), StandardDailyFinePolicy())
