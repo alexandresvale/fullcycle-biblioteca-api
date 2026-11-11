@@ -91,12 +91,16 @@ flowchart LR
 
 #### Entidade de Domínio: `Book`
 - **Atributos:**
-  - `id: UUID` (gerado automaticamente por padrão)
-  - `title: str` (obrigatório, não vazio, máx. 200 caracteres)
-  - `author: str` (obrigatório, não vazio, máx. 150 caracteres)
-  - `isbn: str` (obrigatório, único, 10 ou 13 dígitos numéricos normalizados)
-  - `total_copies: int` (quantidade total de exemplares no acervo, `>= 1`)
-  - `available_copies: int` (quantidade disponível para empréstimo, `0 <= available_copies <= total_copies`)
+
+| Atributo | Tipo | Obrigatório / Padrão | Descrição no Domínio |
+| :--- | :--- | :--- | :--- |
+| `id` | `UUID` | Padrão (`uuid4`) | Identificador único universal do livro no acervo. |
+| `title` | `str` | Obrigatório | Título da obra literária ou acadêmica (não vazio, máx. 200 caracteres). |
+| `author` | `str` | Obrigatório | Nome do autor ou autores principais da obra (não vazio, máx. 150 caracteres). |
+| `isbn` | `str` | Obrigatório (Único) | Código internacional padronizado do livro (ISBN-10 ou ISBN-13 normalizado). |
+| `total_copies` | `int` | Obrigatório (`>= 1`) | Quantidade total de exemplares físicos pertencentes à biblioteca. |
+| `available_copies` | `int` | Inicializado `= total_copies` | Saldo atual de exemplares disponíveis na estante para empréstimo (`0 <= available_copies <= total_copies`). |
+
 - **Comportamentos Ricos (POO no Domínio):**
   - `has_available_copy() -> bool`: retorna `self.available_copies > 0`.
   - `allocate_copy() -> None`: decrementa `available_copies` em 1; lança `BookUnavailableError` se `available_copies == 0`.
@@ -119,17 +123,20 @@ flowchart LR
 
 #### Entidade de Domínio: `Reader`
 - **Atributos:**
-  - `id: UUID`
-  - `name: str` (obrigatório, mínimo 3 caracteres)
-  - `email: str` (obrigatório, único, formato básico válido)
-  - `document: str` (CPF/Matrícula único, apenas dígitos/alfanumérico normalizado)
-  - `category: ReaderCategory` (`StrEnum`: `STANDARD` ou `ACADEMIC`)
-  - `active: bool` (padrão `True`)
 
-#### Regras de Negócio (Leitores)
-- **RN-R01 (Unicidade de Identificação):** `email` e `document` devem ser únicos no sistema (`409 Conflict` em caso de duplicidade).
-- **RN-R02 (Categoria de Leitor):** A categoria (`STANDARD` vs. `ACADEMIC`) determina automaticamente qual política de multa (`FinePolicy`) pode ser aplicada na devolução ou serve de padrão para o leitor.
-- **RN-R03 (Status do Leitor):** Leitores com `active = False` não podem realizar novos empréstimos.
+| Atributo | Tipo | Obrigatório / Padrão | Descrição no Domínio |
+| :--- | :--- | :--- | :--- |
+| `id` | `UUID` | Padrão (`uuid4`) | Identificador único universal do leitor cadastrado. |
+| `name` | `str` | Obrigatório | Nome completo do leitor (mínimo de 3 caracteres). |
+| `email` | `str` | Obrigatório (Único) | Endereço de e-mail do leitor para contato e notificações. |
+| `document` | `str` | Obrigatório (Único) | Documento de identificação oficial (CPF ou matrícula institucional normalizada). |
+| `category` | `ReaderCategory` | Padrão (`STANDARD`) | Perfil do leitor (`STANDARD` para público geral ou `ACADEMIC` para docentes/pesquisadores com carência de multa). |
+| `active` | `bool` | Padrão (`True`) | Indica se o cadastro do leitor está ativo e apto a realizar novos empréstimos. |
+
+- **Regras de Negócio (Leitores):**
+  - **RN-R01 (Unicidade de Identificação):** `email` e `document` devem ser únicos no sistema (`409 Conflict` em caso de duplicidade).
+  - **RN-R02 (Categoria de Leitor):** A categoria (`STANDARD` vs. `ACADEMIC`) determina automaticamente qual política de multa (`FinePolicy`) pode ser aplicada na devolução ou serve de padrão para o leitor.
+  - **RN-R03 (Status do Leitor):** Leitores com `active = False` não podem realizar novos empréstimos.
 
 #### Endpoints REST (`/readers`)
 | Método | Rota | Status Sucesso | Status de Erro | Descrição |
@@ -144,14 +151,17 @@ flowchart LR
 
 #### Entidade de Domínio: `Loan`
 - **Atributos:**
-  - `id: UUID`
-  - `book_id: UUID`
-  - `reader_id: UUID`
-  - `borrowed_at: date`
-  - `due_date: date`
-  - `returned_at: date | None = None`
-  - `fine_amount: Decimal = Decimal("0.00")`
-  - `status: LoanStatus` (`StrEnum`: `ACTIVE`, `RETURNED`)
+
+| Atributo | Tipo | Obrigatório / Padrão | Descrição no Domínio |
+| :--- | :--- | :--- | :--- |
+| `id` | `UUID` | Padrão (`uuid4`) | Identificador único universal do registro de empréstimo. |
+| `book_id` | `UUID` | Obrigatório | Identificador do livro/exemplar que está sendo emprestado. |
+| `reader_id` | `UUID` | Obrigatório | Identificador do leitor responsável pelo empréstimo. |
+| `borrowed_at` | `date` | Obrigatório | Data efetiva em que o empréstimo foi realizado. |
+| `due_date` | `date` | Obrigatório | Data limite prevista para devolução sem incidência de atraso (`due_date >= borrowed_at`). |
+| `returned_at` | `date \| None` | Padrão (`None`) | Data efetiva em que o exemplar foi devolvido (`None` enquanto o empréstimo estiver em aberto). |
+| `fine_amount` | `Decimal` | Padrão (`Decimal("0.00")`) | Valor monetário da multa calculada no ato da devolução via `FinePolicy` (duas casas decimais). |
+| `status` | `LoanStatus` | Padrão (`ACTIVE`) | Estado atual do ciclo de vida do empréstimo (`ACTIVE` enquanto emprestado; `RETURNED` após devolução). |
 - **Comportamentos Ricos (POO no Domínio):**
   - `__post_init__()`: garante que `due_date >= borrowed_at`, lançando `DomainError` caso contrário.
   - `days_overdue(reference_date: date) -> int`: calcula dias corridos após `due_date` (`0` se devolvido no prazo).

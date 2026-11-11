@@ -24,8 +24,14 @@ from src.modules.loans.domain.usecases.return_book import ReturnBookUseCase
 router = APIRouter(prefix="/loans", tags=["Loans"])
 
 
-@router.post("", response_model=LoanResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=LoanResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Realizar novo empréstimo",
+)
 def create_loan(payload: CreateLoanRequest, use_case: BorrowBookUseCaseDep) -> LoanResponse:
+    """Registra o empréstimo de um exemplar para um leitor, validando disponibilidade e limite."""
     try:
         loan = use_case.execute(
             book_id=payload.book_id,
@@ -44,8 +50,13 @@ def create_loan(payload: CreateLoanRequest, use_case: BorrowBookUseCaseDep) -> L
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
 
-@router.post("/{loan_id}/return", response_model=LoanResponse)
+@router.post(
+    "/{loan_id}/return",
+    response_model=LoanResponse,
+    summary="Registrar devolução de livro",
+)
 def return_loan(loan_id: UUID, payload: ReturnLoanRequest, repo: LoanRepoDep) -> LoanResponse:
+    """Finaliza um empréstimo ativo e calcula eventual multa por atraso via Strategy Pattern."""
     policy = resolve_fine_policy(payload.policy_type)
     use_case = ReturnBookUseCase(repo, policy)
     try:
@@ -59,13 +70,23 @@ def return_loan(loan_id: UUID, payload: ReturnLoanRequest, repo: LoanRepoDep) ->
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
 
-@router.get("", response_model=list[LoanResponse])
+@router.get(
+    "",
+    response_model=list[LoanResponse],
+    summary="Listar empréstimos",
+)
 def list_loans(repo: LoanRepoDep) -> list[LoanResponse]:
+    """Retorna todos os empréstimos cadastrados ordenados pela data de empréstimo."""
     return [LoanResponse.model_validate(loan) for loan in repo.list_all()]
 
 
-@router.get("/{loan_id}", response_model=LoanResponse)
+@router.get(
+    "/{loan_id}",
+    response_model=LoanResponse,
+    summary="Buscar empréstimo por ID",
+)
 def get_loan(loan_id: UUID, repo: LoanRepoDep) -> LoanResponse:
+    """Consulta os detalhes, status e valor de multa de um empréstimo específico."""
     loan = repo.get_by_id(loan_id)
     if loan is None:
         raise HTTPException(
