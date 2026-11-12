@@ -2,7 +2,7 @@
 name = "fullcycle-biblioteca-api"
 version = "0.1.0"
 description = "API de Biblioteca (Projeto B) - FullCycle 4.0"
-requires-python = ">=3.12"
+requires-python = ">=3.13"
 dependencies = [
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.32.0",
@@ -25,7 +25,7 @@ dev = [
 
 [tool.ruff]
 line-length = 100
-target-version = "py312"
+target-version = "py313"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP"]
@@ -42,7 +42,7 @@ fail_under = 80
 show_missing = true
 
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.13"
 ignore_missing_imports = true
 check_untyped_defs = true
 
