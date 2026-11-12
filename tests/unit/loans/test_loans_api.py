@@ -150,4 +150,3 @@ def test_loan_error_branches_400_404_409(client: TestClient) -> None:
         json={"returned_at": "2026-11-11", "policy_type": "STANDARD"},
     )
     assert second_return.status_code == 409
-
