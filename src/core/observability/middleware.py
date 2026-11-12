@@ -28,12 +28,10 @@ class ObservabilityMiddleware(BaseHTTPMiddleware):
             duration_ms = round(duration * 1000, 2)
             endpoint = request.url.path
 
-            HTTP_REQUESTS_TOTAL.labels(
-                method=request.method, endpoint=endpoint, status=500
-            ).inc()
-            HTTP_REQUEST_DURATION_SECONDS.labels(
-                method=request.method, endpoint=endpoint
-            ).observe(duration)
+            HTTP_REQUESTS_TOTAL.labels(method=request.method, endpoint=endpoint, status=500).inc()
+            HTTP_REQUEST_DURATION_SECONDS.labels(method=request.method, endpoint=endpoint).observe(
+                duration
+            )
 
             logger.error(
                 "http_request_failed",
@@ -56,9 +54,9 @@ class ObservabilityMiddleware(BaseHTTPMiddleware):
         HTTP_REQUESTS_TOTAL.labels(
             method=request.method, endpoint=endpoint, status=response.status_code
         ).inc()
-        HTTP_REQUEST_DURATION_SECONDS.labels(
-            method=request.method, endpoint=endpoint
-        ).observe(duration)
+        HTTP_REQUEST_DURATION_SECONDS.labels(method=request.method, endpoint=endpoint).observe(
+            duration
+        )
 
         if request.url.path != "/health":
             logger.info(
