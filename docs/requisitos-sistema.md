@@ -43,15 +43,15 @@ fullcycle-biblioteca-api/
 │  │  ├─ exceptions.py                      # Hierarquia base: DomainError, NotFoundError, ConflictError
 │  │  └─ observability/                     # Middleware Structlog JSON + Prometheus (/metrics, /health)
 │  └─ modules/                              # Módulos de Negócio (Features Isoladas)
-│     ├─ books/                             # [Módulo 1: Acervo] (Responsável: Irmão)
+│     ├─ books/                             # [Módulo 1: Acervo] (Responsável: Ricardo Vale)
 │     │  ├─ api/                            # Porta de Entrada HTTP (router.py, schemas.py, dependencies.py)
 │     │  ├─ domain/                         # Núcleo Puro (entities.py, repositories.py, usecases/, exceptions.py)
 │     │  └─ data/                           # Camada de Dados / DB (model.py, repository_sqlalchemy.py)
-│     ├─ readers/                           # [Módulo 2: Leitores] (Responsável: Irmão)
+│     ├─ readers/                           # [Módulo 2: Leitores] (Responsável: Ricardo Vale)
 │     │  ├─ api/                            # Porta de Entrada HTTP (router.py, schemas.py, dependencies.py)
 │     │  ├─ domain/                         # Núcleo Puro (entities.py, repositories.py, usecases/, exceptions.py)
 │     │  └─ data/                           # Camada de Dados / DB (model.py, repository_sqlalchemy.py)
-│     └─ loans/                             # [Módulo 3: Empréstimos e Devoluções] (Responsável: Você)
+│     └─ loans/                             # [Módulo 3: Empréstimos e Devoluções] (Responsável: Alexandre Vale)
 │        ├─ api/                            # Porta de Entrada HTTP (loans_router.py, loan_schema.py, dependencies.py)
 │        ├─ domain/                         # Núcleo Puro (loan.py, fine_policy.py, loan_repository.py, usecases/)
 │        └─ data/                           # Camada de Dados / DB (loan_model.py, loan_repository_sqlalchemy.py)
@@ -192,7 +192,7 @@ flowchart LR
 
 ## 4. Integração Desacoplada entre Módulos (Como Evitar Acoplamento)
 
-Para que o módulo `loans` (Você) não fique bloqueado esperando o módulo `books` e `readers` (Seu Irmão), e para que não haja acoplamento entre os modelos ORM (`LoanModel` importando `BookModel`), a comunicação segue o **Princípio da Inversão de Dependência (DIP)**:
+Para que o módulo `loans` (Alexandre Vale) não fique bloqueado esperando o módulo `books` e `readers` (Ricardo Vale), e para que não haja acoplamento entre os modelos ORM (`LoanModel` importando `BookModel`), a comunicação segue o **Princípio da Inversão de Dependência (DIP)**:
 
 1. **Fase 1 (Desenvolvimento Paralelo Independente):**
    - `BorrowBookUseCase` depende apenas de `LoanRepository` (Protocolo do próprio módulo `loans`), validando disponibilidade via `has_active_loan_for_book(book_id)` e limite via `count_active_by_reader(reader_id)`.
