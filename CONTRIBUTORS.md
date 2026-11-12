@@ -10,7 +10,7 @@
 | Nome do Membro | Papel Principal | GitHub / Usuário |
 | :--- | :--- | :--- |
 | **Alexandre Vale** | Engenharia de Backend, Infraestrutura Docker & Observabilidade | [@alexandresvale](https://github.com/alexandresvale) |
-| **Irmão da Dupla** | Engenharia de Backend, Pipeline CI/CD & Contratos de API | [Colaborador GitHub] |
+| **Ricardo Vale** | Engenharia de Backend, Pipeline CI/CD & Contratos de API | [@ricardosvale](https://github.com/ricardosvale)|
 
 ---
 
@@ -28,7 +28,7 @@ flowchart TD
         A4["Observabilidade (structlog, /metrics) + k6 Smoke Test"]
     end
 
-    subgraph Irmao ["Irmão (Issues #5, #6, #7, #8)"]
+    subgraph Ricardo ["Ricardo Vale (Issues #5, #6, #7, #8)"]
         direction TB
         B1["Pipeline CI/CD GitHub Actions + Gitleaks"]
         B2["Domínio Acervo (Book) & Leitores (Reader)"]
@@ -64,7 +64,7 @@ flowchart TD
   - Coleta e exposição de métricas Prometheus (`/metrics`) com prevenção de explosão de cardinalidade.
   - Automação de teste de fumaça k6 (`tests/perf/smoke.js`) e relatório `docs/desempenho.md`.
 
-### 2. Irmão da Dupla
+### 2. Ricardo Vale
 - **Pipeline de Integração Contínua (M2 / M3):**
   - Esteira automatizada no GitHub Actions (`.github/workflows/ci.yml`) disparada em `push` e `pull_request` nas branches `develop` e `main`.
   - Etapas de segurança com `gitleaks` para prevenção de credenciais e segredos commitados.
