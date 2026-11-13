@@ -30,7 +30,7 @@ fullcycle-biblioteca-api/
 ├─ alembic/                                 # Migrations versionadas do PostgreSQL
 ├─ docs/
 │  ├─ adr/
-│  │  └─ 0001-clean-arch-modular-e-strategy-multa.md
+│  │  └─ 0001-strategy-multa-e-arquitetura.md
 │  ├─ openapi.yaml                          # Contrato OpenAPI 3.1 (validado via Spectral)
 │  ├─ requisitos-sistema.md                 # Este documento de requisitos
 │  ├─ desempenho.md                         # Relatório do smoke test k6 vs. SLO

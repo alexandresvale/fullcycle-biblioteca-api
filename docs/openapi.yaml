@@ -1,0 +1,866 @@
+openapi: 3.1.0
+info:
+  title: FullCycle Biblioteca API
+  version: 0.1.0
+  summary: API RESTful para gestão de acervo, leitores, empréstimos e devoluções.
+  description: >-
+    API RESTful do Projeto B (FullCycle 4.0) construída com Python 3.13, FastAPI,
+    SQLAlchemy 2.0 e Clean Architecture Modular (Package by Feature).
+    Cobre verificação de saúde, exposição de métricas Prometheus, gestão de livros (/books),
+    leitores (/readers) e fluxo transacional de empréstimos e devoluções com cálculo
+    de multa via Strategy Pattern (/loans).
+  contact:
+    name: Equipe FullCycle Biblioteca API (Alexandre Vale & Ricardo Vale)
+    url: https://github.com/ricardosvale/fullcycle-biblioteca-api
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+servers:
+  - url: http://localhost:8000
+    description: Servidor local de desenvolvimento (Docker Compose / Uvicorn)
+tags:
+  - name: Health
+    description: Verificação de saúde e disponibilidade da aplicação.
+  - name: Observability
+    description: Exposição de métricas operacionais no formato Prometheus.
+  - name: Books
+    description: Cadastro e consulta de livros do acervo e controle de exemplares.
+  - name: Readers
+    description: Cadastro e consulta de leitores habilitados para empréstimos.
+  - name: Loans
+    description: Realização de empréstimos, consultas e registro de devoluções com multa.
+paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check da aplicação
+      description: Retorna o status operacional da API e o ambiente de execução configurado.
+      operationId: health_check_health_get
+      responses:
+        '200':
+          description: Aplicação saudável e pronta para receber requisições.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: ok
+                environment: development
+  /metrics:
+    get:
+      tags:
+        - Observability
+      summary: Métricas no formato Prometheus
+      description: Expõe métricas HTTP e operacionais coletadas pelo middleware de observabilidade no formato de exposição do Prometheus.
+      operationId: get_metrics_metrics_get
+      responses:
+        '200':
+          description: Métricas coletadas no formato texto do Prometheus.
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: |
+                # HELP http_requests_total Total de requisições HTTP
+                # TYPE http_requests_total counter
+                http_requests_total{method="GET",path="/health",status="200"} 1.0
+  /books:
+    post:
+      tags:
+        - Books
+      summary: Cadastrar livro no acervo
+      description: Cadastra um novo livro no acervo normalizando o ISBN (ISBN-10 ou ISBN-13) e inicializando o saldo disponível igual ao total de exemplares.
+      operationId: create_book_books_post
+      requestBody:
+        required: true
+        description: Dados do livro a ser cadastrado no acervo.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBookRequest'
+            example:
+              title: Clean Architecture
+              author: Robert C. Martin
+              isbn: 978-0-13-449416-6
+              total_copies: 3
+      responses:
+        '201':
+          description: Livro cadastrado com sucesso no acervo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookResponse'
+              example:
+                id: 550e8400-e29b-41d4-a716-446655440000
+                title: Clean Architecture
+                author: Robert C. Martin
+                isbn: '9780134494166'
+                total_copies: 3
+                available_copies: 3
+        '400':
+          description: Violação de invariante de domínio (ex. ISBN inválido ou título em branco após trim).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail: 'ISBN inválido: informe um código ISBN-10 ou ISBN-13 válido.'
+        '409':
+          description: Conflito por tentativa de cadastro de ISBN já existente no acervo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail: Já existe um livro cadastrado com o ISBN 9780134494166.
+        '422':
+          description: Erro de validação sintática nos campos da requisição (Pydantic).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+        - Books
+      summary: Listar livros do acervo
+      description: Retorna os livros cadastrados no acervo ordenados por título, com filtro opcional para exibir apenas livros com exemplares disponíveis.
+      operationId: list_books_books_get
+      parameters:
+        - name: available_only
+          in: query
+          required: false
+          description: Filtrar apenas livros com pelo menos 1 exemplar disponível.
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Lista de livros retornada com sucesso.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BookResponse'
+              example:
+                - id: 550e8400-e29b-41d4-a716-446655440000
+                  title: Clean Architecture
+                  author: Robert C. Martin
+                  isbn: '9780134494166'
+                  total_copies: 3
+                  available_copies: 3
+        '422':
+          description: Erro de validação no parâmetro de consulta.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /books/{book_id}:
+    get:
+      tags:
+        - Books
+      summary: Buscar livro por ID
+      description: Consulta os detalhes e o saldo de exemplares disponíveis de um livro específico pelo seu UUID.
+      operationId: get_book_books__book_id__get
+      parameters:
+        - name: book_id
+          in: path
+          required: true
+          description: Identificador UUID do livro no acervo.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Dados do livro encontrados com sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookResponse'
+              example:
+                id: 550e8400-e29b-41d4-a716-446655440000
+                title: Clean Architecture
+                author: Robert C. Martin
+                isbn: '9780134494166'
+                total_copies: 3
+                available_copies: 3
+        '404':
+          description: Livro não encontrado para o identificador informado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail: Livro não encontrado.
+        '422':
+          description: Identificador `book_id` em formato UUID inválido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /readers:
+    post:
+      tags:
+        - Readers
+      summary: Cadastrar leitor
+      description: Cadastra um novo leitor na biblioteca normalizando e-mail e documento, garantindo unicidade de ambos.
+      operationId: create_reader_readers_post
+      requestBody:
+        required: true
+        description: Dados cadastrais do leitor.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateReaderRequest'
+            example:
+              name: Alexandre Vale
+              email: alexandre@example.com
+              document: 123.456.789-01
+              category: ACADEMIC
+              active: true
+      responses:
+        '201':
+          description: Leitor cadastrado com sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReaderResponse'
+              example:
+                id: 7a9f1c2d-3e4b-4a5c-8d9e-0123456789ab
+                name: Alexandre Vale
+                email: alexandre@example.com
+                document: '12345678901'
+                category: ACADEMIC
+                active: true
+        '400':
+          description: Violação de invariante de domínio (ex. e-mail em formato inválido ou documento inválido após normalização).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail: E-mail do leitor é inválido.
+        '409':
+          description: Conflito por e-mail ou documento já cadastrado no sistema.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail: Já existe um leitor cadastrado com este e-mail ou documento.
+        '422':
+          description: Erro de validação sintática nos campos da requisição (Pydantic).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+        - Readers
+      summary: Listar leitores
+      description: Retorna todos os leitores cadastrados ordenados alfabeticamente por nome.
+      operationId: list_readers_readers_get
+      responses:
+        '200':
+          description: Lista de leitores retornada com sucesso.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ReaderResponse'
+              example:
+                - id: 7a9f1c2d-3e4b-4a5c-8d9e-0123456789ab
+                  name: Alexandre Vale
+                  email: alexandre@example.com
+                  document: '12345678901'
+                  category: ACADEMIC
+                  active: true
+  /readers/{reader_id}:
+    get:
+      tags:
+        - Readers
+      summary: Buscar leitor por ID
+      description: Consulta os dados cadastrais e a categoria de um leitor específico pelo seu UUID.
+      operationId: get_reader_readers__reader_id__get
+      parameters:
+        - name: reader_id
+          in: path
+          required: true
+          description: Identificador UUID do leitor cadastrado.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Dados do leitor encontrados com sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReaderResponse'
+              example:
+                id: 7a9f1c2d-3e4b-4a5c-8d9e-0123456789ab
+                name: Alexandre Vale
+                email: alexandre@example.com
+                document: '12345678901'
+                category: ACADEMIC
+                active: true
+        '404':
+          description: Leitor não encontrado para o identificador informado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail: Leitor não encontrado.
+        '422':
+          description: Identificador `reader_id` em formato UUID inválido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /loans:
+    post:
+      tags:
+        - Loans
+      summary: Realizar novo empréstimo
+      description: >-
+        Registra um novo empréstimo de exemplar para um leitor, garantindo que o exemplar não possua
+        empréstimo ativo, que o leitor não tenha atingido o limite de 3 empréstimos simultâneos e
+        que `due_date >= borrowed_at`.
+      operationId: create_loan_loans_post
+      requestBody:
+        required: true
+        description: Dados do empréstimo a ser registrado.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateLoanRequest'
+            example:
+              book_id: 550e8400-e29b-41d4-a716-446655440000
+              reader_id: 7a9f1c2d-3e4b-4a5c-8d9e-0123456789ab
+              borrowed_at: '2026-11-01'
+              due_date: '2026-11-05'
+      responses:
+        '201':
+          description: Empréstimo registrado com sucesso no estado `ACTIVE`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoanResponse'
+              example:
+                id: 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
+                book_id: 550e8400-e29b-41d4-a716-446655440000
+                reader_id: 7a9f1c2d-3e4b-4a5c-8d9e-0123456789ab
+                borrowed_at: '2026-11-01'
+                due_date: '2026-11-05'
+                returned_at: null
+                fine_amount: '0.00'
+                status: ACTIVE
+        '400':
+          description: Violação de invariante de domínio (ex. `due_date` anterior a `borrowed_at`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail: Data de vencimento não pode ser anterior ao empréstimo.
+        '404':
+          description: Recurso relacionado (livro ou leitor) não encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail: Livro ou leitor não encontrado.
+        '409':
+          description: Conflito de disponibilidade (exemplar já possui empréstimo ativo).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail: Este exemplar já está emprestado no momento.
+        '422':
+          description: Limite máximo de 3 empréstimos ativos excedido para o leitor ou erro de validação do payload.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ErrorResponse'
+                  - $ref: '#/components/schemas/HTTPValidationError'
+              examples:
+                limite_excedido:
+                  summary: Limite de 3 empréstimos ativos atingido
+                  value:
+                    detail: Leitor atingiu o limite de 3 empréstimos ativos.
+                validacao_payload:
+                  summary: Erro de validação Pydantic
+                  value:
+                    detail:
+                      - loc:
+                          - body
+                          - due_date
+                        msg: Input should be a valid date
+                        type: date_parsing
+    get:
+      tags:
+        - Loans
+      summary: Listar empréstimos
+      description: Retorna todos os empréstimos cadastrados ordenados pela data de empréstimo (mais recentes primeiro).
+      operationId: list_loans_loans_get
+      responses:
+        '200':
+          description: Lista de empréstimos retornada com sucesso.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LoanResponse'
+              example:
+                - id: 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
+                  book_id: 550e8400-e29b-41d4-a716-446655440000
+                  reader_id: 7a9f1c2d-3e4b-4a5c-8d9e-0123456789ab
+                  borrowed_at: '2026-11-01'
+                  due_date: '2026-11-05'
+                  returned_at: null
+                  fine_amount: '0.00'
+                  status: ACTIVE
+  /loans/{loan_id}:
+    get:
+      tags:
+        - Loans
+      summary: Buscar empréstimo por ID
+      description: Consulta os detalhes, status e valor da multa de um empréstimo específico pelo seu UUID.
+      operationId: get_loan_loans__loan_id__get
+      parameters:
+        - name: loan_id
+          in: path
+          required: true
+          description: Identificador UUID do empréstimo.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Dados do empréstimo encontrados com sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoanResponse'
+              example:
+                id: 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
+                book_id: 550e8400-e29b-41d4-a716-446655440000
+                reader_id: 7a9f1c2d-3e4b-4a5c-8d9e-0123456789ab
+                borrowed_at: '2026-11-01'
+                due_date: '2026-11-05'
+                returned_at: '2026-11-09'
+                fine_amount: '3.00'
+                status: RETURNED
+        '404':
+          description: Empréstimo não encontrado para o identificador informado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail: Empréstimo não encontrado.
+        '422':
+          description: Identificador `loan_id` em formato UUID inválido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /loans/{loan_id}/return:
+    post:
+      tags:
+        - Loans
+      summary: Registrar devolução de livro
+      description: >-
+        Finaliza um empréstimo ativo e calcula eventual multa por atraso aplicando o Strategy Pattern
+        (`STANDARD`: R$ 2,00/dia sem carência; `ACADEMIC`: 2 dias de carência e R$ 1,50/dia excedente).
+      operationId: return_loan_loans__loan_id__return_post
+      parameters:
+        - name: loan_id
+          in: path
+          required: true
+          description: Identificador UUID do empréstimo a ser devolvido.
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        description: Data efetiva da devolução e política de multa aplicada.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReturnLoanRequest'
+            example:
+              returned_at: '2026-11-09'
+              policy_type: ACADEMIC
+      responses:
+        '200':
+          description: Devolução registrada e multa calculada com sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoanResponse'
+              example:
+                id: 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
+                book_id: 550e8400-e29b-41d4-a716-446655440000
+                reader_id: 7a9f1c2d-3e4b-4a5c-8d9e-0123456789ab
+                borrowed_at: '2026-11-01'
+                due_date: '2026-11-05'
+                returned_at: '2026-11-09'
+                fine_amount: '3.00'
+                status: RETURNED
+        '400':
+          description: Data de devolução anterior à data de empréstimo (`returned_at < borrowed_at`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail: Data de devolução não pode ser anterior ao empréstimo.
+        '404':
+          description: Empréstimo não encontrado para o identificador informado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail: Empréstimo não encontrado.
+        '409':
+          description: Empréstimo já foi devolvido anteriormente (`status == RETURNED`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail: Este empréstimo já foi finalizado.
+        '422':
+          description: Erro de validação sintática no identificador ou corpo da requisição (Pydantic).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      description: Resposta padrão de verificação de saúde da API.
+      required:
+        - status
+        - environment
+      properties:
+        status:
+          type: string
+          description: Estado operacional da aplicação.
+          example: ok
+        environment:
+          type: string
+          description: Ambiente configurado na aplicação.
+          example: development
+    ErrorResponse:
+      type: object
+      description: Payload padrão de erro HTTP emitido pelo FastAPI (`HTTPException`).
+      required:
+        - detail
+      properties:
+        detail:
+          type: string
+          description: Mensagem descritiva do erro de domínio ou de recurso.
+          example: Recurso não encontrado.
+    CreateBookRequest:
+      type: object
+      description: Schema de requisição para cadastro de livro no acervo.
+      required:
+        - title
+        - author
+        - isbn
+        - total_copies
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Título da obra literária ou acadêmica.
+          example: Clean Architecture
+        author:
+          type: string
+          minLength: 1
+          maxLength: 150
+          description: Nome do autor ou autores principais da obra.
+          example: Robert C. Martin
+        isbn:
+          type: string
+          minLength: 1
+          maxLength: 32
+          description: Código ISBN-10 ou ISBN-13 (aceita hífens e espaços, normalizado no domínio).
+          example: 978-0-13-449416-6
+        total_copies:
+          type: integer
+          minimum: 1
+          description: Quantidade total de exemplares físicos no acervo.
+          example: 3
+    BookResponse:
+      type: object
+      description: Schema de resposta com os dados de um livro do acervo.
+      required:
+        - id
+        - title
+        - author
+        - isbn
+        - total_copies
+        - available_copies
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Identificador UUID único do livro.
+          example: 550e8400-e29b-41d4-a716-446655440000
+        title:
+          type: string
+          description: Título normalizado da obra.
+          example: Clean Architecture
+        author:
+          type: string
+          description: Nome normalizado do autor.
+          example: Robert C. Martin
+        isbn:
+          type: string
+          description: Código ISBN normalizado (sem hífens ou espaços).
+          example: '9780134494166'
+        total_copies:
+          type: integer
+          description: Quantidade total de exemplares pertencentes ao acervo.
+          example: 3
+        available_copies:
+          type: integer
+          description: Quantidade atual de exemplares disponíveis para empréstimo.
+          example: 3
+    ReaderCategory:
+      type: string
+      description: Categorias de perfil de leitor suportadas pela biblioteca.
+      enum:
+        - STANDARD
+        - ACADEMIC
+    CreateReaderRequest:
+      type: object
+      description: Schema de requisição para cadastro de leitor.
+      required:
+        - name
+        - email
+        - document
+      properties:
+        name:
+          type: string
+          minLength: 3
+          maxLength: 150
+          description: Nome completo do leitor.
+          example: Alexandre Vale
+        email:
+          type: string
+          minLength: 3
+          maxLength: 255
+          description: Endereço de e-mail único do leitor.
+          example: alexandre@example.com
+        document:
+          type: string
+          minLength: 3
+          maxLength: 30
+          description: Documento de identificação (CPF ou matrícula institucional).
+          example: 123.456.789-01
+        category:
+          $ref: '#/components/schemas/ReaderCategory'
+          default: STANDARD
+        active:
+          type: boolean
+          default: true
+          description: Indica se o cadastro do leitor inicia ativo.
+          example: true
+    ReaderResponse:
+      type: object
+      description: Schema de resposta com os dados de um leitor cadastrado.
+      required:
+        - id
+        - name
+        - email
+        - document
+        - category
+        - active
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Identificador UUID único do leitor.
+          example: 7a9f1c2d-3e4b-4a5c-8d9e-0123456789ab
+        name:
+          type: string
+          description: Nome completo normalizado do leitor.
+          example: Alexandre Vale
+        email:
+          type: string
+          description: Endereço de e-mail normalizado em minúsculas.
+          example: alexandre@example.com
+        document:
+          type: string
+          description: Documento normalizado sem pontuação ou espaços.
+          example: '12345678901'
+        category:
+          $ref: '#/components/schemas/ReaderCategory'
+        active:
+          type: boolean
+          description: Status de atividade do cadastro do leitor.
+          example: true
+    LoanStatus:
+      type: string
+      description: Estados possíveis do ciclo de vida de um empréstimo.
+      enum:
+        - ACTIVE
+        - RETURNED
+    CreateLoanRequest:
+      type: object
+      description: Schema de requisição para criação de um empréstimo.
+      required:
+        - book_id
+        - reader_id
+        - borrowed_at
+        - due_date
+      properties:
+        book_id:
+          type: string
+          format: uuid
+          description: Identificador UUID do livro emprestado.
+          example: 550e8400-e29b-41d4-a716-446655440000
+        reader_id:
+          type: string
+          format: uuid
+          description: Identificador UUID do leitor responsável pelo empréstimo.
+          example: 7a9f1c2d-3e4b-4a5c-8d9e-0123456789ab
+        borrowed_at:
+          type: string
+          format: date
+          description: Data efetiva de retirada do exemplar (YYYY-MM-DD).
+          example: '2026-11-01'
+        due_date:
+          type: string
+          format: date
+          description: Data limite prevista para devolução sem atraso (YYYY-MM-DD).
+          example: '2026-11-05'
+    ReturnLoanRequest:
+      type: object
+      description: Schema de requisição para registro de devolução e cálculo de multa.
+      required:
+        - returned_at
+      properties:
+        returned_at:
+          type: string
+          format: date
+          description: Data efetiva de devolução do exemplar (YYYY-MM-DD).
+          example: '2026-11-09'
+        policy_type:
+          type: string
+          enum:
+            - STANDARD
+            - ACADEMIC
+          default: STANDARD
+          description: Estratégia de cálculo de multa aplicada à devolução.
+          example: ACADEMIC
+    LoanResponse:
+      type: object
+      description: Schema de resposta com os dados completos de um empréstimo.
+      required:
+        - id
+        - book_id
+        - reader_id
+        - borrowed_at
+        - due_date
+        - returned_at
+        - fine_amount
+        - status
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Identificador UUID único do empréstimo.
+          example: 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
+        book_id:
+          type: string
+          format: uuid
+          description: Identificador UUID do livro emprestado.
+          example: 550e8400-e29b-41d4-a716-446655440000
+        reader_id:
+          type: string
+          format: uuid
+          description: Identificador UUID do leitor.
+          example: 7a9f1c2d-3e4b-4a5c-8d9e-0123456789ab
+        borrowed_at:
+          type: string
+          format: date
+          description: Data de realização do empréstimo.
+          example: '2026-11-01'
+        due_date:
+          type: string
+          format: date
+          description: Data limite prevista para devolução.
+          example: '2026-11-05'
+        returned_at:
+          anyOf:
+            - type: string
+              format: date
+            - type: 'null'
+          description: Data efetiva de devolução ou `null` enquanto o empréstimo estiver ativo.
+          example: '2026-11-09'
+        fine_amount:
+          type: string
+          description: Valor monetário da multa calculada em formato decimal com duas casas (ex. "0.00", "3.00").
+          example: '3.00'
+        status:
+          $ref: '#/components/schemas/LoanStatus'
+    HTTPValidationError:
+      type: object
+      description: Payload padrão do FastAPI para erros de validação de entrada (HTTP 422).
+      properties:
+        detail:
+          type: array
+          description: Lista detalhada de erros de validação por campo.
+          items:
+            $ref: '#/components/schemas/ValidationError'
+    ValidationError:
+      type: object
+      description: Detalhe individual de um erro de validação reportado pelo Pydantic.
+      required:
+        - loc
+        - msg
+        - type
+      properties:
+        loc:
+          type: array
+          description: Caminho até o campo inválido na requisição.
+          items:
+            anyOf:
+              - type: string
+              - type: integer
+          example:
+            - body
+            - total_copies
+        msg:
+          type: string
+          description: Mensagem legível descrevendo a falha de validação.
+          example: Input should be greater than or equal to 1
+        type:
+          type: string
+          description: Código identificador do tipo de erro de validação.
+          example: greater_than_equal
+        input:
+          description: Valor recebido que falhou na validação.
+          example: 0
+        ctx:
+          type: object
+          description: Contexto adicional com parâmetros da regra violada.
+          additionalProperties: true
+          example:
+            ge: 1
