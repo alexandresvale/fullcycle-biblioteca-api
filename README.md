@@ -61,6 +61,8 @@ docker compose exec api mypy src
 
 ## 📚 Documentação do Projeto
 
+- [docs/adr/0001-strategy-multa-e-arquitetura.md](docs/adr/0001-strategy-multa-e-arquitetura.md): Registro de Decisão Arquitetural (MADR) sobre Clean Architecture, Repository Pattern e Strategy Pattern (`FinePolicy`).
+- [docs/openapi.yaml](docs/openapi.yaml): Contrato OpenAPI 3.1 validado automaticamente via Spectral CLI.
 - [docs/desempenho.md](docs/desempenho.md): Relatório do smoke test com k6, métricas de latência e validação dos SLOs.
 - [docs/requisitos-sistema.md](docs/requisitos-sistema.md): Especificação de requisitos, modelo de domínio e tabelas do sistema.
 - [docs/ia.md](docs/ia.md): Registro de co-design e prompts utilizados com a IA.
