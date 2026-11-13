@@ -26,7 +26,8 @@ RUN useradd --create-home --shell /bin/bash appuser && \
     chown -R appuser:appuser /app
 
 COPY --from=builder /opt/venv /opt/venv
-COPY --chown=appuser:appuser pyproject.toml ./
+COPY --chown=appuser:appuser pyproject.toml alembic.ini ./
+COPY --chown=appuser:appuser alembic ./alembic
 COPY --chown=appuser:appuser src ./src
 COPY --chown=appuser:appuser tests ./tests
 
@@ -34,4 +35,4 @@ USER appuser
 
 EXPOSE 8000
 
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["sh", "-c", "alembic upgrade head && exec uvicorn src.main:app --host 0.0.0.0 --port 8000"]
