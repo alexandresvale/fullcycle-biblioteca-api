@@ -8,8 +8,12 @@ from src.core.database import Base, engine
 from src.core.observability.logger import setup_logging
 from src.core.observability.metrics import metrics_endpoint
 from src.core.observability.middleware import ObservabilityMiddleware
+from src.modules.books.api.router import router as books_router
+from src.modules.books.data.model import BookModel  # noqa: F401
 from src.modules.loans.api.loans_router import router as loans_router
 from src.modules.loans.data.loan_model import LoanModel  # noqa: F401
+from src.modules.readers.api.router import router as readers_router
+from src.modules.readers.data.model import ReaderModel  # noqa: F401
 
 setup_logging(settings.log_level)
 
@@ -29,6 +33,8 @@ app = FastAPI(
 
 app.add_middleware(ObservabilityMiddleware)
 
+app.include_router(books_router)
+app.include_router(readers_router)
 app.include_router(loans_router)
 
 
